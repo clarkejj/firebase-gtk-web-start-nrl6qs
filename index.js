@@ -25,6 +25,17 @@ var guestbookListener = null;
 
 // Add Firebase project configuration object here
 // var firebaseConfig = {};
+ var firebaseConfig = {
+    apiKey: "AIzaSyClCNcXBlXv-x0DTBGGAY528-lZqUKAHU0",
+    authDomain: "fir-web-codelab-9263a.firebaseapp.com",
+    databaseURL: "https://fir-web-codelab-9263a.firebaseio.com",
+    projectId: "fir-web-codelab-9263a",
+    storageBucket: "fir-web-codelab-9263a.appspot.com",
+    messagingSenderId: "439419533644",
+    appId: "1:439419533644:web:be3c255d3fc69d949937e9"
+  };
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
 
 // firebase.initializeApp(firebaseConfig);
 
@@ -44,4 +55,112 @@ const uiConfig = {
   }
 };
 
-// const ui = new firebaseui.auth.AuthUI(firebase.auth());
+const ui = new firebaseui.auth.AuthUI(firebase.auth());
+
+// Listen to RSVP button clicks
+startRsvpButton.addEventListener("click",
+ () => {
+    if (firebase.auth().currentUser) {
+      // User is signed in; allows user to sign out
+      firebase.auth().signOut();
+    } else {
+      // No user is signed in; allows user to sign in
+      ui.start("#firebaseui-auth-container", uiConfig);
+    }
+});
+
+// Listen to the current Auth state
+firebase.auth().onAuthStateChanged((user) => {
+ if (user){
+   startRsvpButton.textContent = "LOGOUT";
+   // Show guestbook to logged-in users
+   guestbookContainer.style.display = "block";
+   // Subscribe to the guestbook collection
+  subscribeGuestbook();
+ }
+ else{
+   startRsvpButton.textContent = "RSVP";
+   // Hide guestbook for non-logged-in users
+   guestbookContainer.style.display = "none";
+  // Unsubscribe from the guestbook collection
+  unsubscribeGuestbook();
+ }
+});
+
+// Listen to the form submission
+form.addEventListener("submit", (e) => {
+ // Prevent the default form redirect
+ e.preventDefault();
+ // Write a new message to the database collection "guestbook"
+ firebase.firestore().collection("guestbook").add({
+   text: input.value,
+   timestamp: Date.now(),
+   name: firebase.auth().currentUser.displayName,
+   userId: firebase.auth().currentUser.uid
+ })
+ // clear message input field
+ input.value = ""; 
+ // Return false to avoid redirect
+ return false;
+});
+
+// Create query for messages
+firebase.firestore().collection("guestbook")
+.orderBy("timestamp","desc")
+.onSnapshot((snaps) => {
+ // Reset page
+ guestbook.innerHTML = "";
+ // Loop through documents in database
+ snaps.forEach((doc) => {
+   // Create an HTML entry for each document and add it to the chat
+   const entry = document.createElement("p");
+   entry.textContent = doc.data().name + ": " + doc.data().text;
+   guestbook.appendChild(entry);
+ });
+});
+
+// Listen to guestbook updates
+function subscribeGuestbook(){
+   // Create query for messages
+ guestbookListener = firebase.firestore().collection("guestbook")
+ .orderBy("timestamp","desc")
+ .onSnapshot((snaps) => {
+   // Reset page
+   guestbook.innerHTML = "";
+   // Loop through documents in database
+   snaps.forEach((doc) => {
+     // Create an HTML entry for each document and add it to the chat
+     const entry = document.createElement("p");
+     entry.textContent = doc.data().name + ": " + doc.data().text;
+     guestbook.appendChild(entry);
+   });
+ });
+};
+
+// Unsubscribe from guestbook updates
+function unsubscribeGuestbook(){
+ if (guestbookListener != null)
+ {
+   guestbookListener();
+   guestbookListener = null;
+ }
+};
+// Listen to RSVP responses
+rsvpYes.onclick = () => {
+   // Get a reference to the user's document in the attendees collection
+ const userDoc = firebase.firestore().collection('attendees').doc(firebase.auth().currentUser.uid);
+  // If they RSVP'd yes, save a document with attending: true
+ userDoc.set({
+   attending: true
+ }).catch(console.error)
+}
+rsvpNo.onclick = () => {
+   // Get a reference to the user's document in the attendees collection
+ const userDoc = firebase.firestore().collection('attendees').doc(firebase.auth().currentUser.uid);
+
+ // If they RSVP'd yes, save a document with attending: true
+ userDoc.set({
+   attending: false
+ }).catch(console.error)
+}
+
